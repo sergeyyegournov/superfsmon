@@ -190,7 +190,7 @@ def do_update():
 
         rpc.supervisor.removeProcessGroup(gname)
         rpc.supervisor.addProcessGroup(gname)
-        info("updated process group %s" % gname)
+        info('updated process group %s' % gname)
 
     for gname in added:
         if valid_gnames and gname not in valid_gnames:

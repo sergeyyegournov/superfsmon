@@ -158,8 +158,8 @@ def do_update():
     # valid in order to print a useful error message.
     if valid_gnames:
         groups = set()
-        for info in rpc.supervisor.getAllProcessInfo():
-            groups.add(info['group'])
+        for proc_info in rpc.supervisor.getAllProcessInfo():
+            groups.add(proc_info['group'])
         # New gnames would not currently exist in this set so
         # add those as well.
         groups.update(added)

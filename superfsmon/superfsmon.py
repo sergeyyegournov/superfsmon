@@ -145,7 +145,7 @@ def do_update():
     try:
         result = rpc.supervisor.reloadConfig()
     except xmlrpclib.Fault as e:
-        logger.error('failed to reload config: ' + e.faultString)
+        error('failed to reload config: %s' % e.faultString)
 
     added, changed, removed = result[0]
     valid_gnames = set('all'.split())
@@ -166,37 +166,37 @@ def do_update():
 
         for gname in valid_gnames:
             if gname not in groups:
-                logger.error('no such group: %s' % gname)
+                error('no such group: %s' % gname)
 
     for gname in removed:
         if valid_gnames and gname not in valid_gnames:
             continue
         results = rpc.supervisor.stopProcessGroup(gname)
-        logger.info('stopped %s', gname)
+        info('stopped %s' % gname)
 
         fails = [res for res in results
                  if res['status'] == xmlrpc.Faults.FAILED]
         if fails:
-            logger.warn("%s: %s" % (gname, "has problems; not removing"))
+            error("%s: %s" % (gname, "has problems; not removing"))
             continue
         rpc.supervisor.removeProcessGroup(gname)
-        logger.info('removed process group %s', gname)
+        info('removed process group %s' % gname)
 
     for gname in changed:
         if valid_gnames and gname not in valid_gnames:
             continue
         rpc.supervisor.stopProcessGroup(gname)
-        logger.info('stopped %s', gname)
+        info('stopped %s' % gname)
 
         rpc.supervisor.removeProcessGroup(gname)
         rpc.supervisor.addProcessGroup(gname)
-        logger.info("updated process group %s", gname)
+        info("updated process group %s" % gname)
 
     for gname in added:
         if valid_gnames and gname not in valid_gnames:
             continue
         rpc.supervisor.addProcessGroup(gname)
-        logger.info('added process group %s', gname)
+        info('added process group %s' % gname)
 
 def restart_programs():
     info('restarting programs')

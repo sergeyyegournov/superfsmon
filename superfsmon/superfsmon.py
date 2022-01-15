@@ -185,11 +185,11 @@ def do_update():
     for gname in changed:
         if valid_gnames and gname not in valid_gnames:
             continue
-        supervisor.stopProcessGroup(gname)
+        rpc.supervisor.stopProcessGroup(gname)
         logger.info('stopped %s', gname)
 
-        supervisor.removeProcessGroup(gname)
-        supervisor.addProcessGroup(gname)
+        rpc.supervisor.removeProcessGroup(gname)
+        rpc.supervisor.addProcessGroup(gname)
         logger.info("updated process group %s", gname)
 
     for gname in added:

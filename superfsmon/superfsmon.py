@@ -47,9 +47,8 @@ parser.add_argument('-e', '--enable', metavar='FLAG', type=int,
         help='disable functionality if flag is not set')
 parser.add_argument('--disable', metavar='FLAG', nargs='?', type=int, const=1,
         help='disable functionality if flag is set ')
-parser.add_argument('-rl', '--reload', action='store_true',
+parser.add_argument('--reload', action='store_true',
         help='reload supervisord config on change')
-
 
 monitor_group = parser.add_argument_group('directory monitoring')
 monitor_group.add_argument('path', metavar='PATH',

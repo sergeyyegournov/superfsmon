@@ -141,17 +141,66 @@ def requires_restart(proc):
             (args.any or name in args.program or group in args.group) and
             pid != os.getpid())
 
+def do_update():
+    try:
+        result = rpc.supervisor.reloadConfig()
+    except xmlrpclib.Fault as e:
+        logger.error('failed to reload config: ' + e.faultString)
+
+    added, changed, removed = result[0]
+    valid_gnames = set('all'.split())
+
+    # If all is specified treat it as if nothing was specified.
+    if 'all' in valid_gnames:
+        valid_gnames = set()
+
+    # If any gnames are specified we need to verify that they are
+    # valid in order to print a useful error message.
+    if valid_gnames:
+        groups = set()
+        for info in rpc.supervisor.getAllProcessInfo():
+            groups.add(info['group'])
+        # New gnames would not currently exist in this set so
+        # add those as well.
+        groups.update(added)
+
+        for gname in valid_gnames:
+            if gname not in groups:
+                logger.error('no such group: %s' % gname)
+
+    for gname in removed:
+        if valid_gnames and gname not in valid_gnames:
+            continue
+        results = rpc.supervisor.stopProcessGroup(gname)
+        logger.info('stopped %s', gname)
+
+        fails = [res for res in results
+                 if res['status'] == xmlrpc.Faults.FAILED]
+        if fails:
+            logger.warn("%s: %s" % (gname, "has problems; not removing"))
+            continue
+        rpc.supervisor.removeProcessGroup(gname)
+        logger.info('removed process group %s', gname)
+
+    for gname in changed:
+        if valid_gnames and gname not in valid_gnames:
+            continue
+        supervisor.stopProcessGroup(gname)
+        logger.info('stopped %s', gname)
+
+        supervisor.removeProcessGroup(gname)
+        supervisor.addProcessGroup(gname)
+        logger.info("updated process group %s", gname)
+
+    for gname in added:
+        if valid_gnames and gname not in valid_gnames:
+            continue
+        rpc.supervisor.addProcessGroup(gname)
+        logger.info('added process group %s', gname)
 
 def restart_programs():
     info('restarting programs')
     
-    if args.reload:
-        info('reloading supervisord config')
-        try:
-            rpc.supervisor.reloadConfig()
-        except xmlrpclib.Fault as exc:
-            info('warning: failed to reload config: ' + exc.faultString)
-
     procs = rpc.supervisor.getAllProcessInfo()
     restart_names = [proc['group'] + ':' + proc['name']
                      for proc in procs if requires_restart(proc)]
@@ -184,6 +233,9 @@ def commence_restart():
     time.sleep(0.1)
     restarting_lock.acquire()
     pre_restarting_lock.release()
+    if args.reload:
+        info('running supervisord update')
+        do_update()
     restart_programs()
     restarting_lock.release()
 

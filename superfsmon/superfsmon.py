@@ -131,7 +131,7 @@ def handle_term(signum, frame):
         sys.exit()
 
 
-def requires_restart(proc):
+def requires_restart(updated_groups, proc):
     name = proc['name']
     group = proc['group']
     statename = proc['statename']
@@ -139,9 +139,10 @@ def requires_restart(proc):
 
     return ((statename == 'STARTING' or statename == 'RUNNING') and
             (args.any or name in args.program or group in args.group) and
+            (group not in updated_groups) and
             pid != os.getpid())
 
-def do_update():
+def update_groups():
     try:
         result = rpc.supervisor.reloadConfig()
     except xmlrpclib.Fault as e:
@@ -197,13 +198,15 @@ def do_update():
             continue
         rpc.supervisor.addProcessGroup(gname)
         info('added process group %s' % gname)
+        
+    return added + changed
 
-def restart_programs():
+def restart_programs(updated_groups):
     info('restarting programs')
     
     procs = rpc.supervisor.getAllProcessInfo()
     restart_names = [proc['group'] + ':' + proc['name']
-                     for proc in procs if requires_restart(proc)]
+                     for proc in procs if requires_restart(updated_groups, proc)]
 
     for name in list(restart_names):
         try:
@@ -235,8 +238,10 @@ def commence_restart():
     pre_restarting_lock.release()
     if args.reload:
         info('running supervisord update')
-        do_update()
-    restart_programs()
+        updated_groups = update_groups()
+    else:
+        updated_groups = []
+    restart_programs(updated_groups)
     restarting_lock.release()
 
 

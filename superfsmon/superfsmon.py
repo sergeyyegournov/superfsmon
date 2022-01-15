@@ -45,6 +45,8 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('-e', '--enable', metavar='FLAG', type=int,
         help='disable functionality if flag is not set')
+parser.add_argument('-rl', '--reload', metavar='RELOAD', action='store_true',
+        help='reload supervisord config on change')
 parser.add_argument('--disable', metavar='FLAG', nargs='?', type=int, const=1,
         help='disable functionality if flag is set ')
 
@@ -142,6 +144,13 @@ def requires_restart(proc):
 
 def restart_programs():
     info('restarting programs')
+    
+    if args.reload:
+        info('reloading supervisord config')
+        try:
+            rpc.supervisor.reloadConfig()
+        except xmlrpclib.Fault as exc:
+            info('warning: failed to reload config: ' + exc.faultString)
 
     procs = rpc.supervisor.getAllProcessInfo()
     restart_names = [proc['group'] + ':' + proc['name']

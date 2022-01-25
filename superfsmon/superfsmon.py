@@ -131,7 +131,7 @@ def handle_term(signum, frame):
         sys.exit()
 
 
-def requires_restart(updated_groups, proc):
+def requires_restart(proc):
     name = proc['name']
     group = proc['group']
     statename = proc['statename']
@@ -139,10 +139,14 @@ def requires_restart(updated_groups, proc):
 
     return ((statename == 'STARTING' or statename == 'RUNNING') and
             (args.any or name in args.program or group in args.group) and
-            (group not in updated_groups) and
             pid != os.getpid())
 
-def update_groups():
+def do_update():
+    try:
+        rpc = childutils.getRPCInterface(os.environ)
+    except KeyError as exc:
+        error('missing environment variable ' + str(exc))
+
     try:
         result = rpc.supervisor.reloadConfig()
     except xmlrpclib.Fault as e:
@@ -159,8 +163,8 @@ def update_groups():
     # valid in order to print a useful error message.
     if valid_gnames:
         groups = set()
-        for proc_info in rpc.supervisor.getAllProcessInfo():
-            groups.add(proc_info['group'])
+        for process_info in rpc.supervisor.getAllProcessInfo():
+            groups.add(process_info['group'])
         # New gnames would not currently exist in this set so
         # add those as well.
         groups.update(added)
@@ -198,15 +202,17 @@ def update_groups():
             continue
         rpc.supervisor.addProcessGroup(gname)
         info('added process group %s' % gname)
-        
-    return added + changed
 
-def restart_programs(updated_groups):
+def restart_programs():
     info('restarting programs')
+    try:
+        rpc = childutils.getRPCInterface(os.environ)
+    except KeyError as exc:
+        error('missing environment variable ' + str(exc))
     
     procs = rpc.supervisor.getAllProcessInfo()
     restart_names = [proc['group'] + ':' + proc['name']
-                     for proc in procs if requires_restart(updated_groups, proc)]
+                     for proc in procs if requires_restart(proc)]
 
     for name in list(restart_names):
         try:
@@ -238,10 +244,8 @@ def commence_restart():
     pre_restarting_lock.release()
     if args.reload:
         info('running supervisord update')
-        updated_groups = update_groups()
-    else:
-        updated_groups = []
-    restart_programs(updated_groups)
+        do_update()
+    restart_programs()
     restarting_lock.release()
 
 
@@ -293,12 +297,6 @@ def main():
 
     observer = Observer()
     observer.schedule(event_handler, args.path, recursive=args.recursive)
-
-    try:
-        global rpc
-        rpc = childutils.getRPCInterface(os.environ)
-    except KeyError as exc:
-        error('missing environment variable ' + str(exc))
 
     info('watching ' + args.path)
 
